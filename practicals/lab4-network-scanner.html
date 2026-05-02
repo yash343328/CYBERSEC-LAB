@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab 04 – Network Scanner | CyberSec Lab</title>
+  <link rel="stylesheet" href="../style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="scanline"></div>
+  <div class="noise"></div>
+
+  <header class="lab-page-header">
+    <a href="../index.html" class="back-btn">← BACK</a>
+    <span class="lab-page-title">LAB 04 — NETWORK PORT SCANNER</span>
+  </header>
+
+  <div class="lab-content">
+    <div class="warn-badge">⚠ SIMULATION ONLY — REAL NETWORKS PAR USE KARNA ILLEGAL HAI</div>
+
+    <div class="lab-intro">
+      <h2>📡 Network Reconnaissance & Port Scanning</h2>
+      <p>Port scanning ek fundamental reconnaissance technique hai jisme network pe chalti services aur open ports dhundhe jaate hain. Attackers yeh information use karke vulnerabilities identify karte hain. Defenders isko apne network audit ke liye use karte hain. Nmap jaisa tool real world mein use hota hai — yahan hum iska simulation karenge.</p>
+    </div>
+
+    <div class="concept-box">
+      <strong>Ports kya hain?</strong> Har computer mein 65535 ports hote hain. Har service ek specific port pe chalta hai.<br/>
+      Port 80 = HTTP | Port 443 = HTTPS | Port 22 = SSH | Port 21 = FTP | Port 3306 = MySQL<br/>
+      <strong>Open port:</strong> Service chal rahi hai — potential entry point<br/>
+      <strong>Filtered port:</strong> Firewall block kar raha hai<br/>
+      <strong>Closed port:</strong> Koi service nahi
+    </div>
+
+    <!-- Target Selection -->
+    <div class="panel">
+      <h3>// SCAN CONFIGURATION</h3>
+      <div class="two-col" style="gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label>TARGET (SIMULATED)</label>
+          <select id="target-select" class="lab-input">
+            <option value="webserver">192.168.1.10 (Web Server)</option>
+            <option value="database">192.168.1.20 (Database Server)</option>
+            <option value="mailserver">192.168.1.30 (Mail Server)</option>
+            <option value="workstation">192.168.1.50 (Workstation)</option>
+            <option value="router">192.168.1.1 (Router/Gateway)</option>
+          </select>
+        </div>
+        <div>
+          <label>SCAN TYPE</label>
+          <select id="scan-type" class="lab-input">
+            <option value="common">Common Ports (Top 20)</option>
+            <option value="full">Full Scan (1-1024)</option>
+            <option value="stealthy">Stealth SYN Scan</option>
+            <option value="service">Service Version Detection</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+        <button class="lab-btn danger" onclick="startScan()" id="scan-btn">▶ START SCAN</button>
+        <button class="lab-btn info" onclick="stopScan()" id="stop-btn" style="display:none;">■ STOP</button>
+        <div style="font-family:monospace;font-size:0.75rem;color:var(--text-dim);" id="scan-status"></div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="panel" id="progress-panel" style="display:none;">
+      <h3>// SCAN PROGRESS</h3>
+      <div style="background:var(--bg3);border-radius:4px;height:10px;overflow:hidden;border:1px solid var(--border);margin-bottom:0.8rem;">
+        <div id="progress-bar" style="height:100%;width:0%;background:var(--accent3);transition:width 0.1s;border-radius:4px;"></div>
+      </div>
+      <div id="progress-text" style="font-family:monospace;font-size:0.75rem;color:var(--text-dim);"></div>
+    </div>
+
+    <!-- Terminal Output -->
+    <div class="panel">
+      <h3>// SCAN OUTPUT</h3>
+      <div style="background:#020408;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+        <div style="background:#0a0f1e;padding:0.5rem 1rem;border-bottom:1px solid var(--border);font-family:monospace;font-size:0.7rem;color:var(--text-dim);">
+          nmap -sV --open [target]
+        </div>
+        <div id="scan-output" style="padding:1rem;font-family:monospace;font-size:0.8rem;min-height:200px;max-height:350px;overflow-y:auto;line-height:1.8;"></div>
+      </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="panel" id="results-panel" style="display:none;">
+      <h3>// OPEN PORTS FOUND</h3>
+      <div style="overflow-x:auto;">
+        <table id="results-table" style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.8rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);color:var(--accent2);">
+              <th style="padding:0.5rem;text-align:left;">PORT</th>
+              <th style="padding:0.5rem;text-align:left;">STATE</th>
+              <th style="padding:0.5rem;text-align:left;">SERVICE</th>
+              <th style="padding:0.5rem;text-align:left;">VERSION</th>
+              <th style="padding:0.5rem;text-align:left;">RISK</th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Attack Surface Analysis -->
+    <div class="panel" id="analysis-panel" style="display:none;">
+      <h3>// ATTACK SURFACE ANALYSIS</h3>
+      <div id="analysis-output"></div>
+    </div>
+
+    <!-- Common Ports Reference -->
+    <div class="panel">
+      <h3>// COMMON PORTS REFERENCE</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.5rem;">
+        <div id="port-ref"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>// KEY CONCEPTS LEARNED</h3>
+      <ul style="color:var(--text-dim);line-height:2;padding-left:1.2rem;font-size:0.9rem;">
+        <li>TCP/IP ports aur services ka concept</li>
+        <li>Network reconnaissance kyun important hai</li>
+        <li>SYN scan, Full connect scan, Stealth scan ka fark</li>
+        <li>Open ports = potential attack vectors</li>
+        <li>Firewall aur IDS se detection</li>
+        <li>Unnecessary ports band karna (attack surface reduction)</li>
+        <li>Nmap tool aur uske common flags</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const TARGETS = {
+      webserver: {
+        name: 'Web Server',
+        ip: '192.168.1.10',
+        os: 'Ubuntu 22.04 LTS',
+        ports: [
+          {port:22, state:'open', service:'ssh', version:'OpenSSH 8.9', risk:'medium'},
+          {port:80, state:'open', service:'http', version:'Apache 2.4.52', risk:'medium'},
+          {port:443, state:'open', service:'https', version:'Apache 2.4.52 (SSL)', risk:'low'},
+          {port:8080, state:'open', service:'http-alt', version:'Apache Tomcat 9.0', risk:'high'},
+          {port:3306, state:'filtered', service:'mysql', version:'', risk:'high'},
+          {port:21, state:'closed', service:'ftp', version:'', risk:'low'},
+          {port:25, state:'closed', service:'smtp', version:'', risk:'low'},
+        ]
+      },
+      database: {
+        name: 'Database Server',
+        ip: '192.168.1.20',
+        os: 'CentOS 8',
+        ports: [
+          {port:22, state:'open', service:'ssh', version:'OpenSSH 7.4', risk:'medium'},
+          {port:3306, state:'open', service:'mysql', version:'MySQL 8.0.28', risk:'critical'},
+          {port:5432, state:'open', service:'postgresql', version:'PostgreSQL 14.2', risk:'critical'},
+          {port:27017, state:'open', service:'mongodb', version:'MongoDB 5.0', risk:'critical'},
+          {port:6379, state:'open', service:'redis', version:'Redis 7.0 (NO AUTH!)', risk:'critical'},
+          {port:80, state:'closed', service:'http', version:'', risk:'low'},
+        ]
+      },
+      mailserver: {
+        name: 'Mail Server',
+        ip: '192.168.1.30',
+        os: 'Debian 11',
+        ports: [
+          {port:22, state:'open', service:'ssh', version:'OpenSSH 8.4', risk:'medium'},
+          {port:25, state:'open', service:'smtp', version:'Postfix 3.5.6', risk:'medium'},
+          {port:110, state:'open', service:'pop3', version:'Dovecot 2.3.13', risk:'high'},
+          {port:143, state:'open', service:'imap', version:'Dovecot 2.3.13', risk:'medium'},
+          {port:465, state:'open', service:'smtps', version:'Postfix (SSL)', risk:'low'},
+          {port:993, state:'open', service:'imaps', version:'Dovecot (SSL)', risk:'low'},
+          {port:587, state:'open', service:'submission', version:'Postfix 3.5.6', risk:'medium'},
+        ]
+      },
+      workstation: {
+        name: 'Windows Workstation',
+        ip: '192.168.1.50',
+        os: 'Windows 10 Pro',
+        ports: [
+          {port:135, state:'open', service:'msrpc', version:'Microsoft RPC', risk:'high'},
+          {port:139, state:'open', service:'netbios-ssn', version:'Samba 4.x', risk:'high'},
+          {port:445, state:'open', service:'microsoft-ds', version:'SMBv3 (EternalBlue risk!)', risk:'critical'},
+          {port:3389, state:'open', service:'rdp', version:'Microsoft RDP', risk:'critical'},
+          {port:5985, state:'open', service:'winrm', version:'WinRM HTTP', risk:'high'},
+          {port:80, state:'closed', service:'http', version:'', risk:'low'},
+        ]
+      },
+      router: {
+        name: 'Router/Gateway',
+        ip: '192.168.1.1',
+        os: 'Cisco IOS 15.x',
+        ports: [
+          {port:22, state:'open', service:'ssh', version:'SSH-2.0-Cisco', risk:'medium'},
+          {port:23, state:'open', service:'telnet', version:'Cisco Telnet (UNENCRYPTED!)', risk:'critical'},
+          {port:80, state:'open', service:'http', version:'Cisco Web UI', risk:'high'},
+          {port:443, state:'open', service:'https', version:'Cisco Web UI (SSL)', risk:'medium'},
+          {port:161, state:'open', service:'snmp', version:'SNMPv2c (community: public)', risk:'critical'},
+          {port:53, state:'open', service:'dns', version:'dnsmasq 2.86', risk:'medium'},
+        ]
+      }
+    };
+
+    const RISK_COLORS = {
+      low: '#00ff88',
+      medium: '#ffcc00',
+      high: '#ff9933',
+      critical: '#ff3366'
+    };
+
+    let scanning = false;
+    let scanInterval;
+    let scanProgress = 0;
+
+    function startScan() {
+      const targetKey = document.getElementById('target-select').value;
+      const scanType = document.getElementById('scan-type').value;
+      const target = TARGETS[targetKey];
+      const totalPorts = scanType === 'full' ? 1024 : 20;
+
+      scanning = true;
+      scanProgress = 0;
+      document.getElementById('scan-btn').style.display = 'none';
+      document.getElementById('stop-btn').style.display = 'inline-block';
+      document.getElementById('progress-panel').style.display = 'block';
+      document.getElementById('results-panel').style.display = 'none';
+      document.getElementById('analysis-panel').style.display = 'none';
+
+      const output = document.getElementById('scan-output');
+      output.innerHTML = '';
+      const tbody = document.getElementById('results-tbody');
+      tbody.innerHTML = '';
+
+      let delay = scanType === 'stealthy' ? 120 : 60;
+
+      // Initial header
+      appendLine(`<span style="color:#5a7a9a">Starting Nmap 7.94 simulation ( https://nmap.org )</span>`);
+      appendLine(`<span style="color:#5a7a9a">Nmap scan report for ${target.ip}</span>`);
+      appendLine(`<span style="color:#5a7a9a">Host is up (0.00087s latency)</span>`);
+      appendLine(`<span style="color:#5a7a9a">OS: ${target.os}</span>`);
+      appendLine(`<span style="color:var(--accent2)">PORT     STATE    SERVICE</span>`);
+      appendLine('');
+
+      let portIndex = 0;
+      const scanLine = document.getElementById('progress-text');
+
+      scanInterval = setInterval(() => {
+        if (!scanning) return;
+
+        // Fake scanning noise
+        const fakePort = Math.floor(Math.random() * totalPorts) + 1;
+        const pct = Math.min(99, (portIndex / Math.max(target.ports.length, 1)) * 100);
+        document.getElementById('progress-bar').style.width = pct + '%';
+        scanLine.textContent = `Scanning port ${fakePort}/${totalPorts}...`;
+        document.getElementById('scan-status').textContent = `Scanning ${target.ip}...`;
+
+        if (portIndex < target.ports.length) {
+          const p = target.ports[portIndex];
+          const stateColor = p.state === 'open' ? 'var(--accent3)' : p.state === 'filtered' ? '#ffcc00' : 'var(--text-dim)';
+          const portStr = String(p.port).padEnd(6);
+          const stateStr = p.state.padEnd(9);
+          const svcStr = p.service.padEnd(16);
+
+          appendLine(`<span style="color:${stateColor}">${portStr} ${stateStr} ${svcStr} ${p.version}</span>`);
+
+          if (p.state === 'open') {
+            addTableRow(p);
+          }
+
+          portIndex++;
+        } else {
+          // Scan complete
+          clearInterval(scanInterval);
+          scanning = false;
+          document.getElementById('progress-bar').style.width = '100%';
+          document.getElementById('scan-status').textContent = 'SCAN COMPLETE';
+          scanLine.textContent = `Scan complete. ${target.ports.filter(p=>p.state==='open').length} open ports found.`;
+
+          const openPorts = target.ports.filter(p=>p.state==='open').length;
+          appendLine('');
+          appendLine(`<span style="color:var(--accent)">Nmap done: 1 IP address (1 host up) scanned</span>`);
+          appendLine(`<span style="color:var(--accent)">Open ports: ${openPorts} | Filtered: ${target.ports.filter(p=>p.state==='filtered').length} | Closed: ${target.ports.filter(p=>p.state==='closed').length}</span>`);
+
+          document.getElementById('scan-btn').style.display = 'inline-block';
+          document.getElementById('stop-btn').style.display = 'none';
+          document.getElementById('results-panel').style.display = 'block';
+          showAnalysis(target);
+        }
+      }, delay);
+    }
+
+    function stopScan() {
+      scanning = false;
+      clearInterval(scanInterval);
+      document.getElementById('scan-btn').style.display = 'inline-block';
+      document.getElementById('stop-btn').style.display = 'none';
+      document.getElementById('scan-status').textContent = 'SCAN STOPPED';
+    }
+
+    function appendLine(html) {
+      const out = document.getElementById('scan-output');
+      const div = document.createElement('div');
+      div.innerHTML = html || '&nbsp;';
+      out.appendChild(div);
+      out.scrollTop = out.scrollHeight;
+    }
+
+    function addTableRow(p) {
+      const tbody = document.getElementById('results-tbody');
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      tr.innerHTML = `
+        <td style="padding:0.5rem;color:var(--accent2)">${p.port}/tcp</td>
+        <td style="padding:0.5rem;color:var(--accent)">OPEN</td>
+        <td style="padding:0.5rem;color:var(--text)">${p.service}</td>
+        <td style="padding:0.5rem;color:var(--text-dim);font-size:0.75rem">${p.version}</td>
+        <td style="padding:0.5rem;"><span style="background:rgba(255,51,102,0.1);border:1px solid ${RISK_COLORS[p.risk]};color:${RISK_COLORS[p.risk]};font-size:0.65rem;padding:0.2rem 0.5rem;border-radius:3px;">${p.risk.toUpperCase()}</span></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function showAnalysis(target) {
+      const panel = document.getElementById('analysis-panel');
+      const out = document.getElementById('analysis-output');
+      panel.style.display = 'block';
+
+      const criticals = target.ports.filter(p=>p.state==='open' && p.risk==='critical');
+      const highs = target.ports.filter(p=>p.state==='open' && p.risk==='high');
+
+      let html = '';
+      if (criticals.length > 0) {
+        html += `<div style="background:rgba(255,51,102,0.1);border:1px solid rgba(255,51,102,0.3);border-radius:6px;padding:1rem;margin-bottom:0.8rem;">
+          <div style="color:var(--accent3);font-family:monospace;margin-bottom:0.5rem;">🔴 CRITICAL VULNERABILITIES (${criticals.length})</div>`;
+        criticals.forEach(p => {
+          html += `<div style="color:var(--text-dim);font-size:0.85rem;margin-bottom:0.3rem;">• Port ${p.port} (${p.service}): ${getVulnTip(p)}</div>`;
+        });
+        html += '</div>';
+      }
+      if (highs.length > 0) {
+        html += `<div style="background:rgba(255,153,51,0.07);border:1px solid rgba(255,153,51,0.3);border-radius:6px;padding:1rem;margin-bottom:0.8rem;">
+          <div style="color:#ff9933;font-family:monospace;margin-bottom:0.5rem;">🟠 HIGH RISK PORTS (${highs.length})</div>`;
+        highs.forEach(p => {
+          html += `<div style="color:var(--text-dim);font-size:0.85rem;margin-bottom:0.3rem;">• Port ${p.port} (${p.service}): ${getVulnTip(p)}</div>`;
+        });
+        html += '</div>';
+      }
+      html += `<div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:1rem;">
+        <div style="color:var(--accent);font-family:monospace;margin-bottom:0.5rem;">✅ RECOMMENDATIONS</div>
+        <div style="color:var(--text-dim);font-size:0.85rem;line-height:1.8;">
+          • Unnecessary ports band karo (principle of least privilege)<br/>
+          • Firewall rules update karo<br/>
+          • Services latest version pe update karo<br/>
+          • Default credentials immediately change karo<br/>
+          • IDS/IPS deploy karo network pe
+        </div>
+      </div>`;
+
+      out.innerHTML = html;
+      panel.scrollIntoView({behavior:'smooth'});
+    }
+
+    function getVulnTip(p) {
+      const tips = {
+        23: 'Telnet UNENCRYPTED hai! SSH use karo',
+        445: 'SMB — EternalBlue exploit possible!',
+        3389: 'RDP brute force attack ka target',
+        6379: 'Redis bina auth ke — data exposed!',
+        161: 'SNMP community "public" — network info leak',
+        3306: 'MySQL directly exposed — firewall lagao'
+      };
+      return tips[p.port] || 'Version update aur access restrict karo';
+    }
+
+    // Port reference table
+    const commonPorts = [
+      [21,'FTP'],[22,'SSH'],[23,'Telnet'],[25,'SMTP'],[53,'DNS'],
+      [80,'HTTP'],[110,'POP3'],[143,'IMAP'],[443,'HTTPS'],[445,'SMB'],
+      [3306,'MySQL'],[3389,'RDP'],[5432,'PostgreSQL'],[6379,'Redis'],[8080,'HTTP-Alt']
+    ];
+    const refDiv = document.getElementById('port-ref');
+    refDiv.parentElement.innerHTML = '<h3>// COMMON PORTS REFERENCE</h3><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.4rem;" id="port-ref-grid"></div>';
+    const grid = document.getElementById('port-ref-grid');
+    commonPorts.forEach(([port, svc]) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:0.5rem 0.8rem;font-family:monospace;font-size:0.75rem;';
+      div.innerHTML = `<span style="color:var(--accent2)">${port}</span> <span style="color:var(--text-dim)">${svc}</span>`;
+      grid.appendChild(div);
+    });
+  </script>
+</body>
+</html>

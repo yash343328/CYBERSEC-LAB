@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab 01 – Caesar Cipher | CyberSec Lab</title>
+  <link rel="stylesheet" href="../style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="scanline"></div>
+  <div class="noise"></div>
+
+  <header class="lab-page-header">
+    <a href="../index.html" class="back-btn">← BACK</a>
+    <span class="lab-page-title">LAB 01 — CAESAR CIPHER</span>
+  </header>
+
+  <div class="lab-content">
+    <div class="warn-badge">⚠ EDUCATIONAL USE ONLY</div>
+
+    <div class="lab-intro">
+      <h2>🔑 Caesar Cipher</h2>
+      <p>Caesar Cipher ek sabse purana aur simple encryption technique hai. Har letter ko alphabet mein ek fixed number ke barabar shift kiya jaata hai. For example, shift 3 ke saath "A" → "D", "B" → "E". Julius Caesar ne apne secret messages ke liye iska use kiya tha.</p>
+    </div>
+
+    <div class="concept-box">
+      <strong>How it works:</strong> Agar aapka plaintext hai "HELLO" aur shift hai 3, toh ciphertext hoga "KHOOR".<br/>
+      H(7)+3=K(10), E(4)+3=H(7), L(11)+3=O(14), L(11)+3=O(14), O(14)+3=R(17)<br/>
+      <strong>Weakness:</strong> Sirf 25 possible shifts hain — brute force se easily crack ho jaata hai!
+    </div>
+
+    <!-- ENCRYPT / DECRYPT -->
+    <div class="panel">
+      <h3>// ENCRYPT / DECRYPT</h3>
+      <div>
+        <label>INPUT TEXT</label>
+        <input type="text" class="lab-input" id="caesar-input" placeholder="Type your message here..." value="HELLO WORLD"/>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>SHIFT VALUE: <span id="shift-val" style="color:var(--accent)">3</span></label>
+        <input type="range" id="shift-range" min="1" max="25" value="3" oninput="document.getElementById('shift-val').textContent=this.value; updateCaesar()"/>
+      </div>
+      <div style="display:flex;gap:0.8rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <button class="lab-btn" onclick="encryptCaesar()">ENCRYPT</button>
+        <button class="lab-btn info" onclick="decryptCaesar()">DECRYPT</button>
+        <button class="lab-btn danger" onclick="bruteForce()">BRUTE FORCE ALL</button>
+      </div>
+      <label>OUTPUT</label>
+      <div class="output-box" id="caesar-output">Output yahan dikhega...</div>
+    </div>
+
+    <!-- BRUTE FORCE RESULT -->
+    <div class="panel" id="brute-panel" style="display:none;">
+      <h3>// BRUTE FORCE RESULTS (ALL 25 SHIFTS)</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Attacker ke paas yeh sab possibilities hoti hain. Sirf padh ke sahi message dhundha ja sakta hai!</p>
+      <div class="output-box info" id="brute-output" style="max-height:300px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- VISUAL WHEEL -->
+    <div class="panel">
+      <h3>// CIPHER WHEEL VISUALIZER</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Neeche dekho kaise letters shift hote hain:</p>
+      <canvas id="wheel-canvas" width="320" height="160" style="width:100%;max-width:400px;display:block;margin:auto;"></canvas>
+    </div>
+
+    <!-- CONCEPT -->
+    <div class="panel">
+      <h3>// KEY CONCEPTS LEARNED</h3>
+      <ul style="color:var(--text-dim);line-height:2;padding-left:1.2rem;font-size:0.9rem;">
+        <li>Substitution cipher ka basic concept</li>
+        <li>Encryption = plaintext → ciphertext</li>
+        <li>Decryption = ciphertext → plaintext</li>
+        <li>Brute force attack — har possible key try karna</li>
+        <li>Caesar cipher insecure kyun hai (small keyspace)</li>
+        <li>Modern encryption (AES-256) mein billions of possibilities hoti hain</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    function caesarShift(text, shift, decrypt=false) {
+      shift = decrypt ? (26 - shift) % 26 : shift;
+      return text.toUpperCase().split('').map(ch => {
+        if (ch >= 'A' && ch <= 'Z') {
+          return String.fromCharCode((ch.charCodeAt(0) - 65 + shift) % 26 + 65);
+        }
+        return ch;
+      }).join('');
+    }
+
+    function encryptCaesar() {
+      const text = document.getElementById('caesar-input').value;
+      const shift = parseInt(document.getElementById('shift-range').value);
+      const result = caesarShift(text, shift);
+      document.getElementById('caesar-output').textContent = `[ENCRYPTED | Shift: ${shift}]\n${result}`;
+      document.getElementById('caesar-output').className = 'output-box success';
+      document.getElementById('brute-panel').style.display = 'none';
+      drawWheel(shift);
+    }
+
+    function decryptCaesar() {
+      const text = document.getElementById('caesar-input').value;
+      const shift = parseInt(document.getElementById('shift-range').value);
+      const result = caesarShift(text, shift, true);
+      document.getElementById('caesar-output').textContent = `[DECRYPTED | Shift: ${shift}]\n${result}`;
+      document.getElementById('caesar-output').className = 'output-box info';
+      document.getElementById('brute-panel').style.display = 'none';
+      drawWheel(shift);
+    }
+
+    function bruteForce() {
+      const text = document.getElementById('caesar-input').value;
+      let result = '';
+      for (let s = 1; s <= 25; s++) {
+        result += `Shift ${String(s).padStart(2,'0')}: ${caesarShift(text, s)}\n`;
+      }
+      document.getElementById('brute-output').textContent = result;
+      document.getElementById('brute-panel').style.display = 'block';
+      document.getElementById('caesar-output').textContent = '[BRUTE FORCE ATTACK LAUNCHED]\nSabhi 25 possible shifts neeche dikhaye gaye hain.';
+      document.getElementById('caesar-output').className = 'output-box error';
+      document.getElementById('brute-panel').scrollIntoView({behavior:'smooth'});
+    }
+
+    function updateCaesar() {
+      const shift = parseInt(document.getElementById('shift-range').value);
+      drawWheel(shift);
+    }
+
+    function drawWheel(shift) {
+      const canvas = document.getElementById('wheel-canvas');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0,0,W,H);
+
+      const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const cellW = W / 26;
+
+      // Plain row
+      for (let i = 0; i < 26; i++) {
+        ctx.fillStyle = i % 2 === 0 ? '#0d1528' : '#0a1020';
+        ctx.fillRect(i * cellW, 10, cellW, 50);
+        ctx.fillStyle = '#00cfff';
+        ctx.font = `bold ${Math.max(9, cellW-4)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(alpha[i], i * cellW + cellW/2, 42);
+      }
+
+      // Cipher row
+      for (let i = 0; i < 26; i++) {
+        const ci = (i + shift) % 26;
+        ctx.fillStyle = i % 2 === 0 ? '#091808' : '#071408';
+        ctx.fillRect(i * cellW, 75, cellW, 50);
+        ctx.fillStyle = '#00ff88';
+        ctx.font = `bold ${Math.max(9, cellW-4)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(alpha[ci], i * cellW + cellW/2, 107);
+      }
+
+      // Labels
+      ctx.fillStyle = '#5a7a9a';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('PLAIN:', 2, 8);
+      ctx.fillText('CIPHER:', 2, 73);
+
+      // Arrow
+      ctx.strokeStyle = '#ff3366';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(W/2, 60);
+      ctx.lineTo(W/2, 75);
+      ctx.stroke();
+      ctx.fillStyle = '#ff3366';
+      ctx.fillText(`↓ shift ${shift}`, W/2 - 20, 70);
+
+      // Highlight active shift
+      ctx.strokeStyle = '#ff3366';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(shift * cellW, 75, cellW, 50);
+    }
+
+    // Init
+    drawWheel(3);
+  </script>
+</body>
+</html>

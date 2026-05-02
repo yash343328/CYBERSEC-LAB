@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab 05 – SQL Injection | CyberSec Lab</title>
+  <link rel="stylesheet" href="../style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="scanline"></div>
+  <div class="noise"></div>
+
+  <header class="lab-page-header">
+    <a href="../index.html" class="back-btn">← BACK</a>
+    <span class="lab-page-title">LAB 05 — SQL INJECTION</span>
+  </header>
+
+  <div class="lab-content">
+    <div class="warn-badge">⚠ SIMULATED DATABASE ONLY — REAL SYSTEMS PAR USE KARNA CRIME HAI</div>
+
+    <div class="lab-intro">
+      <h2>🗄️ SQL Injection Attack Lab</h2>
+      <p>SQL Injection tab hota hai jab attacker malicious SQL code ko input field mein dalta hai, aur application us code ko database query mein execute kar deta hai. Yeh OWASP Top 10 ka #1 vulnerability raha hai saalon tak. Is lab mein aap ek simulated vulnerable login form pe SQLi attacks karoge — aur phir dekhoge kaise secure kiya jaata hai.</p>
+    </div>
+
+    <div class="concept-box">
+      <strong>Kaise kaam karta hai:</strong><br/>
+      Normal query: <code style="color:var(--accent2)">SELECT * FROM users WHERE username='admin' AND password='secret'</code><br/>
+      SQLi payload: username = <code style="color:var(--accent3)">admin' OR '1'='1</code><br/>
+      Resulting query: <code style="color:var(--accent3)">SELECT * FROM users WHERE username='admin' OR '1'='1' -- ' AND password='anything'</code><br/>
+      <strong>Result:</strong> '1'='1' hamesha true hota hai → login bypass!
+    </div>
+
+    <!-- Database Viewer -->
+    <div class="panel">
+      <h3>// SIMULATED DATABASE (users table)</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Yeh woh data hai jo database mein stored hai. Attacker isko leak karna chahta hai:</p>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:0.8rem;">
+          <thead>
+            <tr style="background:var(--bg3);color:var(--accent2);">
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">id</th>
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">username</th>
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">password</th>
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">role</th>
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">email</th>
+              <th style="padding:0.6rem;text-align:left;border:1px solid var(--border);">credit_card</th>
+            </tr>
+          </thead>
+          <tbody id="db-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <button class="lab-btn danger" onclick="showTab('vuln')" id="tab-vuln">VULNERABLE LOGIN</button>
+      <button class="lab-btn info" onclick="showTab('secure')" id="tab-secure">SECURE LOGIN</button>
+      <button class="lab-btn" onclick="showTab('manual')" id="tab-manual">MANUAL QUERY</button>
+    </div>
+
+    <!-- Vulnerable Login -->
+    <div id="tab-vuln-content" class="panel" style="border-color:rgba(255,51,102,0.3);">
+      <h3 style="color:var(--accent3)">// ❌ VULNERABLE LOGIN FORM</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">String concatenation use karta hai — SQLi vulnerable!</p>
+
+      <div style="max-width:400px;">
+        <label>USERNAME</label>
+        <input type="text" class="lab-input" id="vuln-user" placeholder="Username..." value="admin"/>
+        <label>PASSWORD</label>
+        <input type="text" class="lab-input" id="vuln-pass" placeholder="Password..."/>
+        <button class="lab-btn danger" onclick="vulnLogin()" style="width:100%;">LOGIN (VULNERABLE)</button>
+      </div>
+
+      <div style="margin-top:1rem;background:#020408;border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+        <div style="font-family:monospace;font-size:0.7rem;color:var(--text-dim);margin-bottom:0.3rem;">GENERATED SQL QUERY:</div>
+        <div id="vuln-query" style="font-family:monospace;font-size:0.8rem;color:var(--accent2);word-break:break-all;"></div>
+      </div>
+
+      <div class="output-box" id="vuln-result" style="margin-top:1rem;min-height:60px;"></div>
+      <div id="leaked-data" style="display:none;margin-top:1rem;background:rgba(255,51,102,0.08);border:1px solid rgba(255,51,102,0.3);border-radius:6px;padding:1rem;">
+        <div style="color:var(--accent3);font-family:monospace;margin-bottom:0.5rem;">💀 DATA BREACH — LEAKED DATA:</div>
+        <div id="leaked-content" style="font-family:monospace;font-size:0.8rem;color:var(--text);"></div>
+      </div>
+    </div>
+
+    <!-- Secure Login -->
+    <div id="tab-secure-content" class="panel" style="display:none;border-color:rgba(0,255,136,0.3);">
+      <h3 style="color:var(--accent)">// ✅ SECURE LOGIN FORM</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Parameterized queries use karta hai — SQLi proof!</p>
+
+      <div style="max-width:400px;">
+        <label>USERNAME</label>
+        <input type="text" class="lab-input" id="sec-user" placeholder="Username..."/>
+        <label>PASSWORD</label>
+        <input type="text" class="lab-input" id="sec-pass" placeholder="Password..."/>
+        <button class="lab-btn" onclick="secureLogin()" style="width:100%;">LOGIN (SECURE)</button>
+      </div>
+
+      <div style="margin-top:1rem;background:#020408;border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+        <div style="font-family:monospace;font-size:0.7rem;color:var(--text-dim);margin-bottom:0.3rem;">PARAMETERIZED QUERY (SAFE):</div>
+        <div style="font-family:monospace;font-size:0.8rem;color:var(--accent);word-break:break-all;">
+          SELECT * FROM users WHERE username = ? AND password = ?<br/>
+          <span style="color:var(--text-dim)">[Parameters passed separately — SQL injection impossible]</span>
+        </div>
+      </div>
+
+      <div class="output-box" id="sec-result" style="margin-top:1rem;min-height:60px;"></div>
+    </div>
+
+    <!-- Manual Query -->
+    <div id="tab-manual-content" class="panel" style="display:none;">
+      <h3>// MANUAL SQL QUERY TESTER</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Directly SQL queries run karo simulated database pe:</p>
+      <label>SQL QUERY</label>
+      <textarea class="lab-input" id="manual-query" rows="3" style="resize:vertical;">SELECT * FROM users</textarea>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.8rem;">
+        <button class="lab-btn" onclick="runManual()">RUN QUERY</button>
+        <button class="lab-btn info" onclick="loadQuery('SELECT id, username, role FROM users')">Show Users</button>
+        <button class="lab-btn danger" onclick="loadQuery(&quot;SELECT * FROM users WHERE username='admin' OR '1'='1'--&quot;)">Try SQLi</button>
+        <button class="lab-btn danger" onclick="loadQuery(&quot;SELECT * FROM users WHERE 1=1--&quot;)">Dump All</button>
+      </div>
+      <div class="output-box" id="manual-result" style="min-height:80px;overflow-x:auto;"></div>
+    </div>
+
+    <!-- SQLi Payload Library -->
+    <div class="panel">
+      <h3>// COMMON SQLi PAYLOADS</h3>
+      <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:1rem;">Yeh common payloads hain. Vulnerable login mein username field mein try karo:</p>
+      <div style="display:grid;gap:0.5rem;">
+        <div id="sqli-payloads"></div>
+      </div>
+    </div>
+
+    <!-- Prevention -->
+    <div class="panel" style="border-color:rgba(0,255,136,0.3);">
+      <h3>// 🛡️ PREVENTION TECHNIQUES</h3>
+      <div style="display:grid;gap:0.6rem;">
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="color:var(--accent);font-family:monospace;font-size:0.85rem;margin-bottom:0.3rem;">1. Parameterized Queries (Best!)</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">db.query("SELECT * FROM users WHERE user=? AND pass=?", [user, pass])</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="color:var(--accent);font-family:monospace;font-size:0.85rem;margin-bottom:0.3rem;">2. ORM Use Karo</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">User.findOne({ where: { username, password } }) // SQLAlchemy, Sequelize, etc.</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="color:var(--accent);font-family:monospace;font-size:0.85rem;margin-bottom:0.3rem;">3. Input Validation + Whitelisting</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">Only allow alphanumeric in usernames. Reject special chars.</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="color:var(--accent);font-family:monospace;font-size:0.85rem;margin-bottom:0.3rem;">4. Least Privilege Database User</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">App DB user ko sirf SELECT/INSERT access do. DROP/UPDATE restrict karo.</code>
+        </div>
+        <div style="background:rgba(0,255,136,0.05);border:1px solid var(--border);border-radius:6px;padding:0.8rem;">
+          <div style="color:var(--accent);font-family:monospace;font-size:0.85rem;margin-bottom:0.3rem;">5. WAF (Web Application Firewall)</div>
+          <code style="font-size:0.75rem;color:var(--text-dim);">ModSecurity, Cloudflare WAF — SQLi patterns detect karke block karta hai</code>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>// KEY CONCEPTS LEARNED</h3>
+      <ul style="color:var(--text-dim);line-height:2;padding-left:1.2rem;font-size:0.9rem;">
+        <li>SQL Injection kaise kaam karta hai</li>
+        <li>Authentication bypass aur data extraction</li>
+        <li>String concatenation kyun dangerous hai</li>
+        <li>Parameterized queries — single best defense</li>
+        <li>UNION attacks se table data leak hona</li>
+        <li>Blind SQLi — error-based aur time-based</li>
+        <li>Database privilege escalation</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Simulated DB
+    const DB = [
+      {id:1, username:'admin', password:'Admin@123', role:'administrator', email:'admin@company.com', credit_card:'4532-1234-5678-9012'},
+      {id:2, username:'john', password:'john1234', role:'user', email:'john@email.com', credit_card:'5412-8765-4321-0987'},
+      {id:3, username:'alice', password:'alice_pass', role:'moderator', email:'alice@email.com', credit_card:'3782-8224-6310-005'},
+      {id:4, username:'bob', password:'bob123!', role:'user', email:'bob@email.com', credit_card:'6011-1111-1111-1117'},
+      {id:5, username:'superuser', password:'S3cr3t!Root', role:'root', email:'root@company.com', credit_card:'4916-3748-9214-0123'},
+    ];
+
+    // Populate DB table
+    const tbody = document.getElementById('db-table-body');
+    DB.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+      tr.innerHTML = `
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--accent2)">${row.id}</td>
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--accent)">${row.username}</td>
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--accent3)">${row.password}</td>
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--text)">${row.role}</td>
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--text-dim)">${row.email}</td>
+        <td style="padding:0.5rem;border:1px solid var(--border);color:var(--accent3)">${row.credit_card}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Tabs
+    function showTab(tab) {
+      ['vuln','secure','manual'].forEach(t => {
+        document.getElementById(`tab-${t}-content`).style.display = t === tab ? 'block' : 'none';
+        document.getElementById(`tab-${t}`).style.background = t === tab ? 'var(--accent3)' : '';
+        document.getElementById(`tab-${t}`).style.color = t === tab ? '#fff' : '';
+      });
+    }
+
+    // SQLi detection
+    function isSQLi(input) {
+      return /('|--|;|OR\s+['"\d]|AND\s+['"\d]|UNION|SELECT|DROP|INSERT|UPDATE|DELETE|\/\*|\*\/|=\s*['"]/i.test(input);
+    }
+
+    function vulnLogin() {
+      const user = document.getElementById('vuln-user').value;
+      const pass = document.getElementById('vuln-pass').value;
+
+      // Show generated query
+      const query = `SELECT * FROM users WHERE username='${user}' AND password='${pass}'`;
+      document.getElementById('vuln-query').textContent = query;
+
+      // Check for SQLi
+      const sqli = isSQLi(user) || isSQLi(pass);
+
+      // Simulate vulnerable logic
+      let loginResult = null;
+      let allData = false;
+
+      if (sqli) {
+        // SQLi payloads
+        const lowerUser = user.toLowerCase();
+        if (lowerUser.includes("or '1'='1") || lowerUser.includes('or 1=1') || lowerUser.includes("'--") || lowerUser.includes("'#")) {
+          loginResult = DB[0]; // returns first user (admin)
+          allData = true;
+        } else if (lowerUser.includes('union') || lowerUser.includes('select')) {
+          allData = true;
+          loginResult = DB[0];
+        } else {
+          loginResult = DB[0]; // Still bypass
+        }
+      } else {
+        loginResult = DB.find(u => u.username === user && u.password === pass) || null;
+      }
+
+      const result = document.getElementById('vuln-result');
+      const leaked = document.getElementById('leaked-data');
+      const leakedContent = document.getElementById('leaked-content');
+
+      if (loginResult) {
+        if (sqli) {
+          result.textContent = `🚨 SQL INJECTION SUCCESSFUL!\n✅ Login bypassed as: ${loginResult.username} (${loginResult.role})\nPassword check was completely bypassed!`;
+          result.className = 'output-box error';
+          leaked.style.display = 'block';
+          if (allData) {
+            leakedContent.innerHTML = DB.map(u => 
+              `ID:${u.id} | ${u.username} | ${u.password} | ${u.role} | ${u.email} | CC: ${u.credit_card}`
+            ).join('<br/>');
+          } else {
+            leakedContent.textContent = `Username: ${loginResult.username}\nRole: ${loginResult.role}\nEmail: ${loginResult.email}`;
+          }
+        } else {
+          result.textContent = `✅ Login successful!\nWelcome, ${loginResult.username} (${loginResult.role})`;
+          result.className = 'output-box success';
+          leaked.style.display = 'none';
+        }
+      } else {
+        result.textContent = '❌ Login failed. Invalid credentials.';
+        result.className = 'output-box error';
+        leaked.style.display = 'none';
+      }
+    }
+
+    function secureLogin() {
+      const user = document.getElementById('sec-user').value;
+      const pass = document.getElementById('sec-pass').value;
+      const result = document.getElementById('sec-result');
+      const sqli = isSQLi(user) || isSQLi(pass);
+
+      // Parameterized = literal string match only
+      const found = DB.find(u => u.username === user && u.password === pass);
+
+      if (sqli) {
+        result.textContent = `🛡️ SQL Injection BLOCKED!\nInput: "${user}" contains SQL metacharacters.\nParameterized query ne isko literal string treat kiya.\n\n❌ Login failed — No injection possible!`;
+        result.className = 'output-box info';
+      } else if (found) {
+        result.textContent = `✅ Login successful!\nWelcome, ${found.username}`;
+        result.className = 'output-box success';
+      } else {
+        result.textContent = '❌ Login failed. Invalid credentials.';
+        result.className = 'output-box error';
+      }
+    }
+
+    function runManual() {
+      const q = document.getElementById('manual-query').value.trim();
+      const result = document.getElementById('manual-result');
+      const lower = q.toLowerCase();
+
+      let matched = [...DB];
+
+      // Simple simulated SQL parser
+      if (lower.includes('where')) {
+        const orAll = lower.includes("'1'='1") || lower.includes('1=1');
+        if (orAll) {
+          // return all
+        } else {
+          const whereMatch = lower.match(/where\s+username\s*=\s*'([^']+)'/);
+          if (whereMatch) {
+            matched = matched.filter(u => u.username === whereMatch[1]);
+          }
+        }
+      }
+
+      if (lower.includes('select id, username, role')) {
+        result.innerHTML = matched.map(u => `${u.id} | ${u.username} | ${u.role}`).join('\n');
+      } else if (lower.includes('select *') || lower.includes('select id')) {
+        result.innerHTML = matched.map(u => 
+          `[${u.id}] ${u.username} | ${u.password} | ${u.role} | ${u.email} | ${u.credit_card}`
+        ).join('\n');
+      } else {
+        result.innerHTML = `Query simulated:\n${q}\n\nReturning ${matched.length} row(s)`;
+      }
+
+      result.className = 'output-box ' + (lower.includes("or '1'='1") || lower.includes('1=1') ? 'error' : 'success');
+    }
+
+    function loadQuery(q) {
+      document.getElementById('manual-query').value = q;
+      showTab('manual');
+    }
+
+    // SQLi payload library
+    const payloads = [
+      { label:"Auth Bypass", user:"admin' --", pass:"anything", tip:"Password check skip ho jaata hai" },
+      { label:"OR True", user:"' OR '1'='1", pass:"x", tip:"'1'='1' hamesha true — sab users return" },
+      { label:"OR True #2", user:"admin' OR 1=1--", pass:"x", tip:"Admin ke saath OR bypass" },
+      { label:"Comment Skip", user:"admin'/*", pass:"*/--", tip:"Comment se password skip" },
+      { label:"Hash Comment", user:"admin'#", pass:"x", tip:"MySQL mein # comment hai" },
+      { label:"UNION Dump", user:"' UNION SELECT * FROM users--", pass:"x", tip:"UNION se full table dump" },
+    ];
+
+    const plDiv = document.getElementById('sqli-payloads');
+    payloads.forEach(p => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:0.7rem 1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;';
+      div.innerHTML = `
+        <div>
+          <span style="color:var(--accent3);font-family:monospace;font-size:0.8rem;font-weight:bold;">${p.label}</span>
+          <span style="color:var(--accent2);font-family:monospace;font-size:0.75rem;margin-left:0.5rem;">${p.user}</span>
+          <div style="color:var(--text-dim);font-size:0.75rem;margin-top:0.2rem;">${p.tip}</div>
+        </div>
+        <button class="lab-btn danger" style="font-size:0.7rem;padding:0.3rem 0.7rem;white-space:nowrap;" 
+          onclick="document.getElementById('vuln-user').value='${p.user.replace(/'/g,"\\'")}';document.getElementById('vuln-pass').value='${p.pass}';showTab('vuln');vulnLogin();">TRY IT</button>
+      `;
+      plDiv.appendChild(div);
+    });
+
+    // Init
+    showTab('vuln');
+  </script>
+</body>
+</html>
